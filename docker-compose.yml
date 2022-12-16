@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  db:
+    container_name: rethinkdb
+    image: rethinkdb
+    ports:
+      - 8080:8080
+      - 28015:28015
+      - 29015:29015
+    volumes:
+      - ./data:/data
