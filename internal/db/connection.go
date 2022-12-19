@@ -4,8 +4,14 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/gorilla/websocket"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
+
+/*
+	r.dbCreate('chat');
+	r.db('chat').tableCreate('messages')
+*/
 
 type DB struct {
 	dbName  string
@@ -33,7 +39,9 @@ func (db *DB) Truncate(table string) error {
 	return err
 }
 
-func (db *DB) Listen(table string) {
+func (db *DB) Listen(table string, subscribers *[]*websocket.Conn) {
+	log.Printf(">> listen")
+
 	rows, err := r.DB(db.dbName).Table(table).Changes().Run(db.session)
 	if err != nil {
 		log.Fatal(err)
@@ -45,6 +53,16 @@ func (db *DB) Listen(table string) {
 
 	for c := range ch {
 		v := c["new_val"]
-		log.Printf(">> %s: %s", v["user"], v["message"])
+		if len(v["user"]) == 0 || len(v["message"]) == 0 {
+			continue
+		}
+
+		for _, sub := range *subscribers {
+			msg := []byte(fmt.Sprintf(`{"user": "%s", "message": "%s"}`, v["user"], v["message"]))
+			if err = sub.WriteMessage(1, msg); err != nil {
+				log.Println("write:", err)
+				break
+			}
+		}
 	}
 }

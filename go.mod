@@ -1,8 +1,11 @@
-module github.com/yugovtr/bingo/client
+module github.com/yugovtr/bingo
 
 go 1.19
 
-require gopkg.in/rethinkdb/rethinkdb-go.v6 v6.2.2
+require (
+	github.com/gorilla/websocket v1.5.0
+	gopkg.in/rethinkdb/rethinkdb-go.v6 v6.2.2
+)
 
 require (
 	github.com/golang/protobuf v1.3.4 // indirect
