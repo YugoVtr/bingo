@@ -3,9 +3,9 @@
 default: build
 
 db:
-	docker-compose up -d
+	docker compose up -d
 
 server:
-	go run internal/cmd/server/main.go
+	go run cmd/web/server.go
 
 build: server

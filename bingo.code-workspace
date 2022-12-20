@@ -5,4 +5,10 @@
 			"path": ".",
 		},
 	],
+	"settings": {
+		"files.exclude": {
+			"**/data": true
+		},
+		"go.testFlags": ["-v", "-count=1"],
+	}
 }

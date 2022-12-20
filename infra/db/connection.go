@@ -2,15 +2,17 @@ package db
 
 import (
 	"fmt"
-	"log"
 
-	"github.com/gorilla/websocket"
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
 /*
 	r.dbCreate('chat');
-	r.db('chat').tableCreate('messages')
+	r.db('chat').tableCreate('messages');
+	r.db('chat').table("messages").insert({
+    user: "vitor",
+    message: "Dolor sit amet"
+	})
 */
 
 type DB struct {
@@ -39,30 +41,31 @@ func (db *DB) Truncate(table string) error {
 	return err
 }
 
-func (db *DB) Listen(table string, subscribers *[]*websocket.Conn) {
-	log.Printf(">> listen")
-
+func (db *DB) Listen(table string) (<-chan []byte, error) {
 	rows, err := r.DB(db.dbName).Table(table).Changes().Run(db.session)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer rows.Close()
+
+	broadcast := make(chan []byte)
 
 	ch := make(chan map[string]map[string]string)
 	rows.Listen(ch)
 
-	for c := range ch {
-		v := c["new_val"]
-		if len(v["user"]) == 0 || len(v["message"]) == 0 {
-			continue
-		}
+	go func() {
+		defer close(broadcast)
 
-		for _, sub := range *subscribers {
-			msg := []byte(fmt.Sprintf(`{"user": "%s", "message": "%s"}`, v["user"], v["message"]))
-			if err = sub.WriteMessage(1, msg); err != nil {
-				log.Println("write:", err)
-				break
+		for c := range ch {
+			v := c["new_val"]
+			if len(v["user"]) == 0 || len(v["message"]) == 0 {
+				continue
 			}
+
+			msg := []byte(fmt.Sprintf(`{"user": "%s", "message": "%s"}`, v["user"], v["message"]))
+			broadcast <- msg
 		}
-	}
+	}()
+
+	return broadcast, nil
 }
