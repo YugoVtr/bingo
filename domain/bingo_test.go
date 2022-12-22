@@ -13,11 +13,11 @@ func TestNewGame(t *testing.T) {
 
 func TestGame_Play(t *testing.T) {
 	session := AssertNewGame(t)
-	myNumber := session.Play()
+	myNumber, _ := session.Play()
 
-	newNumber := session.Raffle()
+	newNumber, _ := session.Raffle()
 	for myNumber != newNumber {
-		newNumber = session.Raffle()
+		newNumber, _ = session.Raffle()
 	}
 
 	winner, ok := session.HasWinner()
@@ -27,6 +27,12 @@ func TestGame_Play(t *testing.T) {
 
 	assert.Equal(t, myNumber, newNumber)
 	t.Logf("win after %d numbers", len(session.History))
+
+	_, err := session.Play()
+	assert.Error(t, err)
+
+	_, err = session.Raffle()
+	assert.Error(t, err)
 }
 
 func AssertNewGame(t *testing.T) *domain.Game {

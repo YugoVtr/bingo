@@ -13,6 +13,16 @@ type Caller func() int
 
 type Player int
 
+type BingoError string
+
+func (err BingoError) Error() string {
+	return string(err)
+}
+
+func Error(err string) error {
+	return BingoError(err)
+}
+
 type Game struct {
 	Caller
 	History []int
@@ -41,19 +51,37 @@ func (g *Game) HasWinner() (*Player, bool) {
 	return &p, i >= 0
 }
 
-func (g *Game) Play() int {
-	p := g.Caller()
-	g.Players = append(g.Players, Player(p))
-	return p
+func (g *Game) HasStarted() bool {
+	return len(g.History) > 0
 }
 
-func (g *Game) Raffle() int {
+func (g *Game) Play() (int, error) {
+	if g.HasStarted() {
+		return -1, Error("game already started")
+	}
+
+	var n int
+	for n = g.Caller(); slices.Index(g.Players, Player(n)) != -1; n = g.Caller() {
+		// non repet players
+		// TODO - check if has a number to create a player
+	}
+
+	g.Players = append(g.Players, Player(n))
+	return n, nil
+}
+
+func (g *Game) Raffle() (int, error) {
+	if _, ok := g.HasWinner(); ok {
+		return -1, Error("game already done")
+	}
+
 	var n int
 	for n = g.Caller(); slices.Index(g.History, n) != -1; n = g.Caller() {
+		// non repet numbers
 	}
 
 	g.History = append(g.History, n)
-	return n
+	return n, nil
 }
 
 func raffle() int {

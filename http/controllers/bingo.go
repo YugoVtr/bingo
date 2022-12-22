@@ -33,15 +33,22 @@ func NewBingo(game *domain.Game) *Bingo {
 }
 
 func (b *Bingo) Next(w http.ResponseWriter, r *http.Request) {
-	n := b.game.Raffle()
-	b.logger.Printf("new number requested: %d", n)
+	n, err := b.game.Raffle()
+	if err != nil {
+		b.logger.Printf("raffle error: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
+	b.logger.Printf("new number requested: %d", n)
 	w.Write(writeInt(n))
 
 	if winner, ok := b.game.HasWinner(); ok {
 		b.logger.Printf("we have a winner: %d", int(*winner))
+
 		conn, ok := b.connections[int(*winner)]
 		if !ok {
+			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
@@ -53,10 +60,17 @@ func (b *Bingo) Play(w http.ResponseWriter, r *http.Request) {
 	conn, err := wsUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		b.logger.Printf("connection error: %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	myNumber := b.game.Play()
+	myNumber, err := b.game.Play()
+	if err != nil {
+		conn.Close()
+		b.logger.Printf("game error: %s", err)
+		return
+	}
+
 	b.connections[myNumber] = conn
 
 	b.logger.Printf("new connection started with number %d", myNumber)
