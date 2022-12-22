@@ -1,6 +1,12 @@
 version: "3.9"
 
 services:
+  server:
+    container_name: server
+    build: .
+    ports:
+      - 8081:8081
+
   db:
     container_name: rethinkdb
     image: rethinkdb
@@ -10,3 +16,12 @@ services:
       - 29015:29015
     volumes:
       - ./data:/data
+
+  test:
+    container_name: test
+    build:
+      context: .
+      target: build
+    volumes:
+      - ./:/go/src/app
+    command: bash -c 'go test ./... -count=1 -cover | grep -v ?'

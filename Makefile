@@ -2,13 +2,16 @@
 
 default: build
 
-db:
-	docker compose up -d
-
-server:
+dev:
 	go run cmd/web/server.go
 
+db:
+	docker compose up -d db
+
+server:
+	docker compose up -d server
+
 test:
-	go test ./... -count=1 -cover | grep -v ?
+	docker compose run --rm test
 
 build: server
