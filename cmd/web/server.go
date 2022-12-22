@@ -7,43 +7,37 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/yugovtr/bingo/domain"
 	"github.com/yugovtr/bingo/http"
-	"github.com/yugovtr/bingo/infra/db"
+	"github.com/yugovtr/bingo/http/routes"
+
+	http2 "net/http"
 )
 
 func main() {
 	addr := flag.String("addr", ":8081", "http service address")
-	dbName := flag.String("dbName", "chat", "database name")
 
 	flag.Parse()
-
-	connection, err := db.Connect(*dbName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	broadcast, err := connection.Listen("messages")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	go func() {
-		for b := range broadcast {
-			log.Printf("%s\n", b)
-		}
-	}()
 
 	log.Printf("server running in %s\n", *addr)
 	defer log.Printf("server closed\n")
 
-	config := http.ServerConfig{TCPAddress: *addr}
+	server := Setup(*addr)
 
 	select {
-	case err := <-DelegateListenAndServe(http.NewServer(config).ListenAndServe):
+	case err := <-DelegateListenAndServe(server.ListenAndServe):
 		log.Fatal(err)
 	case signal := <-NewInterruptSignal():
 		log.Printf("received %s signal\n", signal)
 	}
+}
+
+func Setup(addr string) *http2.Server {
+	game := domain.NewGame()
+	routes := routes.NewBingo(routes.New(), game)
+	config := http.ServerConfig{TCPAddress: addr, Routes: routes}
+
+	return http.NewServer(config)
 }
 
 func DelegateListenAndServe(serve func() error) chan error {

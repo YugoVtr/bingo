@@ -2,6 +2,7 @@ package http
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -23,32 +24,65 @@ func NewClient(baseURL string, log Logger) *Client {
 	}
 }
 
-func (cli Client) HealthCheck() error {
-	url, method := fmt.Sprintf("%s/healthcheck", cli.baseURL), http.MethodGet
-	cli.logger.Log(method, url)
+func (cli Client) request(url string) ([]byte, error) {
+	method := http.MethodGet
+	defer cli.logger.Log(method, url)
 
 	res, err := cli.httpClient.Get(url)
 	if err != nil {
-		return HTTPError(fmt.Errorf("problem reaching %s %s, %w", method, url, err))
+		return nil, HTTPError(fmt.Errorf("problem reaching %s %s, %w", method, url, err))
 	}
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusOK {
-		return HTTPError(fmt.Errorf("status error %d from %s %s", res.StatusCode, method, url))
+		return nil, HTTPError(fmt.Errorf("status error %d from %s %s", res.StatusCode, method, url))
 	}
 
-	return nil
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, HTTPError(fmt.Errorf("read response error %w", err))
+	}
+
+	return body, nil
 }
 
-func (cli Client) WebSocket() error {
-	url := fmt.Sprintf("ws%s/ws", strings.TrimPrefix(cli.baseURL, "http"))
-	cli.logger.Log("WebSocket", url)
+func (cli Client) Home() error {
+	url := fmt.Sprintf("%s/", cli.baseURL)
+
+	_, err := cli.request(url)
+	return err
+}
+
+func (cli Client) HealthCheck() error {
+	url := fmt.Sprintf("%s/healthcheck", cli.baseURL)
+
+	_, err := cli.request(url)
+	return err
+}
+
+func (cli Client) PlayBingo() (*websocket.Conn, error) {
+	url := fmt.Sprintf("ws%s/bingo/play", strings.TrimPrefix(cli.baseURL, "http"))
+	cli.logger.Log("PlayBingo", url)
 
 	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		return HTTPError(fmt.Errorf("could not open a ws connection on %s %v", url, err))
+		return nil, HTTPError(fmt.Errorf("could not open a ws connection on %s %v", url, err))
 	}
-	defer ws.Close()
+
+	return ws, nil
+}
+
+func (cli Client) BingoNext(w io.Writer) error {
+	url := fmt.Sprintf("%s/bingo/next", cli.baseURL)
+
+	body, err := cli.request(url)
+	if err != nil {
+		return err
+	}
+
+	if _, err := w.Write(body); err != nil {
+		return HTTPError(fmt.Errorf("write response error %w", err))
+	}
 
 	return nil
 }
