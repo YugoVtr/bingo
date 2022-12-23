@@ -2,6 +2,7 @@ version: "3.9"
 
 services:
   server:
+    image: bingo/prod
     container_name: server
     build: .
     ports:
@@ -18,10 +19,21 @@ services:
       - ./data:/data
 
   test:
+    image: bingo/dev
     container_name: test
     build:
       context: .
-      target: build
+      target: dev
     volumes:
       - ./:/go/src/app
     command: bash -c 'go test ./... -count=1 -cover | grep -v ?'
+
+  lint:
+    image: bingo/dev
+    container_name: test
+    build:
+      context: .
+      target: dev
+    volumes:
+      - ./:/go/src/app
+    command: golangci-lint run --timeout=5m

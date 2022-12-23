@@ -41,7 +41,7 @@ func (b *Bingo) Next(w http.ResponseWriter, r *http.Request) {
 	}
 
 	b.logger.Printf("new number requested: %d", n)
-	w.Write(writeInt(n))
+	_, _ = w.Write(writeInt(n))
 
 	if winner, ok := b.game.HasWinner(); ok {
 		b.logger.Printf("we have a winner: %d", int(*winner))
@@ -52,7 +52,7 @@ func (b *Bingo) Next(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		conn.WriteMessage(1, writeString("you win"))
+		_ = conn.WriteMessage(1, writeString("you win"))
 	}
 }
 
@@ -74,7 +74,7 @@ func (b *Bingo) Play(w http.ResponseWriter, r *http.Request) {
 	b.connections[myNumber] = conn
 
 	b.logger.Printf("new connection started with number %d", myNumber)
-	conn.WriteMessage(1, writeInt(myNumber))
+	_ = conn.WriteMessage(1, writeInt(myNumber))
 }
 
 func writeInt(i int) []byte {
@@ -82,5 +82,5 @@ func writeInt(i int) []byte {
 }
 
 func writeString(s string) []byte {
-	return []byte(fmt.Sprintf("%s", s))
+	return []byte(s)
 }

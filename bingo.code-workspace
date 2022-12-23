@@ -10,6 +10,7 @@
 			"**/data": true
 		},
 		"go.testFlags": ["-v", "-count=1"],
+		"go.lintTool": "golangci-lint",
 	},
 	"launch": {
 		"version": "0.2.0",

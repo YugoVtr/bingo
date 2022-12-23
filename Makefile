@@ -14,4 +14,9 @@ server:
 test:
 	docker compose run --rm test
 
+lint:
+	docker compose run --rm lint
+
+ci: test lint
+
 build: server
