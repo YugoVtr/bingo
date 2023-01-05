@@ -9,4 +9,5 @@ RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/i
 
 FROM gcr.io/distroless/static-debian11
 COPY --from=build /go/bin/app /
+
 CMD ["/app"]

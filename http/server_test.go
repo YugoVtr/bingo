@@ -6,7 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yugovtr/bingo/domain"
+	domain "github.com/yugovtr/bingo/domain/game"
+	"github.com/yugovtr/bingo/domain/repository"
 	"github.com/yugovtr/bingo/http"
 	"github.com/yugovtr/bingo/http/routes"
 )
@@ -21,10 +22,25 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestServer_Bingo(t *testing.T) {
-	game := domain.NewGameWithCaller(func() int { return 1 })
+	game := domain.NewGameWithCaller(repository.NewInMemory(), func() int { return 1 })
 	routes := routes.NewBingo(routes.New(), game)
 
 	client := AssertServer(t, http.ServerConfig{Routes: routes})
+	AcceptanceBingo(t, client)
+}
+
+func AssertServer(t *testing.T, config http.ServerConfig) *http.Client {
+	t.Helper()
+
+	server := http.NewServer(config)
+	s := httptest.NewServer(server.Handler)
+
+	t.Cleanup(func() { server.Close() })
+	return http.NewClient(s.URL, t)
+}
+
+func AcceptanceBingo(t *testing.T, client *http.Client) {
+	t.Helper()
 
 	player, err := client.PlayBingo()
 	assert.NoError(t, err)
@@ -44,14 +60,4 @@ func TestServer_Bingo(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, msg)
 	t.Logf("%s", msg)
-}
-
-func AssertServer(t *testing.T, config http.ServerConfig) *http.Client {
-	t.Helper()
-
-	server := http.NewServer(config)
-	s := httptest.NewServer(server.Handler)
-
-	t.Cleanup(func() { server.Close() })
-	return http.NewClient(s.URL, t)
 }

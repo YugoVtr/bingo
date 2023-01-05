@@ -12,10 +12,10 @@ server:
 	docker compose up -d server
 
 test:
-	docker compose run --rm test
+	go test ./... -count=1 -cover -timeout=30s | grep -v ? # --tags=integration
 
 lint:
-	docker compose run --rm lint
+	golangci-lint run --timeout=5m
 
 ci: test lint
 

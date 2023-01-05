@@ -3,7 +3,7 @@ package routes
 import (
 	"net/http"
 
-	"github.com/yugovtr/bingo/domain"
+	"github.com/yugovtr/bingo/domain/game"
 	"github.com/yugovtr/bingo/http/controllers"
 	"github.com/yugovtr/bingo/http/handlers"
 )
@@ -16,7 +16,7 @@ func New() *http.ServeMux {
 	return router
 }
 
-func NewBingo(router *http.ServeMux, game *domain.Game) *http.ServeMux {
+func NewBingo(router *http.ServeMux, game *game.Bingo) *http.ServeMux {
 	bingo := controllers.NewBingo(game)
 	router.HandleFunc("/bingo/play", bingo.Play)
 	router.HandleFunc("/bingo/next", bingo.Next)

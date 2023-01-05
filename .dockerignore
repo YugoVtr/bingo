@@ -1,0 +1,9 @@
+**/.git
+data
+
+**/*.html
+*.gitignore
+*.code-workspace
+*.yml
+*.md
+Dockerfile

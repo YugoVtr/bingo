@@ -1,10 +1,11 @@
-package domain_test
+package game_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/yugovtr/bingo/domain"
+	bingo "github.com/yugovtr/bingo/domain/game"
+	repo "github.com/yugovtr/bingo/domain/repository"
 )
 
 func TestNewGame(t *testing.T) {
@@ -26,7 +27,7 @@ func TestGame_Play(t *testing.T) {
 	assert.True(t, ok, "winner not found")
 
 	assert.Equal(t, myNumber, newNumber)
-	t.Logf("win after %d numbers", len(session.History))
+	t.Logf("win after %d numbers", len(session.Historic()))
 
 	_, err := session.Play()
 	assert.Error(t, err)
@@ -35,10 +36,10 @@ func TestGame_Play(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func AssertNewGame(t *testing.T) *domain.Game {
+func AssertNewGame(t *testing.T) *bingo.Bingo {
 	t.Helper()
 
-	session := domain.NewGame()
+	session := bingo.NewGame(repo.NewInMemory())
 	assert.NotNil(t, session)
 
 	return session

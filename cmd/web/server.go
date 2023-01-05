@@ -1,28 +1,33 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"github.com/yugovtr/bingo/domain"
+	"github.com/yugovtr/bingo/domain/game"
+	"github.com/yugovtr/bingo/domain/repository"
 	"github.com/yugovtr/bingo/http"
 	"github.com/yugovtr/bingo/http/routes"
+	database "github.com/yugovtr/bingo/infra/db"
 
 	http2 "net/http"
 )
 
 func main() {
-	addr := flag.String("addr", ":8081", "http service address")
+	host := flag.String("host", ":8081", "http service address")
+	db := flag.String("db", ":28015", "rethinkdb address")
 
 	flag.Parse()
 
-	log.Printf("server running in %s\n", *addr)
+	log.Printf("server running in %s\n", *host)
 	defer log.Printf("server closed\n")
 
-	server := Setup(*addr)
+	server := Setup(*host, *db)
 
 	select {
 	case err := <-DelegateListenAndServe(server.ListenAndServe):
@@ -32,10 +37,16 @@ func main() {
 	}
 }
 
-func Setup(addr string) *http2.Server {
-	game := domain.NewGame()
+func Setup(host, db string) *http2.Server {
+	const timeout = 10 * time.Second
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	client := database.Connect(ctx, db)
+	game := game.NewGame(repository.NewRethinkDB(client.Session))
 	routes := routes.NewBingo(routes.New(), game)
-	config := http.ServerConfig{TCPAddress: addr, Routes: routes}
+	config := http.ServerConfig{TCPAddress: host, Routes: routes}
 
 	return http.NewServer(config)
 }

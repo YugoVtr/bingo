@@ -11,6 +11,9 @@
 		},
 		"go.testFlags": ["-v", "-count=1"],
 		"go.lintTool": "golangci-lint",
+		"gopls": {
+			"build.buildFlags": ["-tags=integration"]
+		}
 	},
 	"launch": {
 		"version": "0.2.0",

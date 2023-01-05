@@ -6,7 +6,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/yugovtr/bingo/domain"
+	"github.com/yugovtr/bingo/domain/game"
 )
 
 type Logger interface {
@@ -19,12 +19,12 @@ var wsUpgrader = websocket.Upgrader{
 }
 
 type Bingo struct {
-	game        *domain.Game
+	game        *game.Bingo
 	connections map[int]*websocket.Conn
 	logger      Logger
 }
 
-func NewBingo(game *domain.Game) *Bingo {
+func NewBingo(game *game.Bingo) *Bingo {
 	return &Bingo{
 		game:        game,
 		connections: make(map[int]*websocket.Conn),

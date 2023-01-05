@@ -4,9 +4,13 @@ services:
   server:
     image: bingo/prod
     container_name: server
+    restart: always
     build: .
     ports:
       - 8081:8081
+    links:
+      - "db:database"
+    command: /app -db=172.25.0.2:28015
 
   db:
     container_name: rethinkdb
@@ -26,7 +30,7 @@ services:
       target: dev
     volumes:
       - ./:/go/src/app
-    command: bash -c 'go test ./... -count=1 -cover | grep -v ?'
+    command: make test
 
   lint:
     image: bingo/dev
@@ -36,4 +40,4 @@ services:
       target: dev
     volumes:
       - ./:/go/src/app
-    command: golangci-lint run --timeout=5m
+    command: make lint
