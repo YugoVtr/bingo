@@ -6,20 +6,23 @@ package http_test
 import (
 	"context"
 	"fmt"
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	tc "github.com/testcontainers/testcontainers-go"
 	"github.com/testcontainers/testcontainers-go/wait"
-	domain "github.com/yugovtr/bingo/domain/game"
 	"github.com/yugovtr/bingo/domain/repository"
 	"github.com/yugovtr/bingo/http"
+	"github.com/yugovtr/bingo/http/controllers"
 	"github.com/yugovtr/bingo/http/routes"
 	"github.com/yugovtr/bingo/infra/db"
 )
 
 func TestServer_BingoWithRethinkDB(t *testing.T) {
+	log.SetPrefix("[SERVER] ")
+
 	ctx := context.Background()
 	address := StartDB(t, ctx)
 
@@ -30,8 +33,14 @@ func TestServer_BingoWithRethinkDB(t *testing.T) {
 	require.NoError(t, err)
 
 	rethinkDB := repository.NewRethinkDB(cli.Session)
-	game := domain.NewGameWithCaller(rethinkDB, func() int { return 1 })
-	routes := routes.NewBingo(routes.New(), game)
+	game := &StubGame{}
+
+	input := controllers.NewBingoInput{
+		Game:       game,
+		Repository: rethinkDB,
+	}
+
+	routes := routes.NewBingo(routes.New(), input)
 
 	client := AssertServer(t, http.ServerConfig{Routes: routes})
 

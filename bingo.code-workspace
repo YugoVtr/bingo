@@ -9,7 +9,7 @@
 		"files.exclude": {
 			"**/data": true
 		},
-		"go.testFlags": ["-v", "-count=1"],
+		"go.testFlags": ["-v", "-count=1", "--tags=integration"],
 		"go.lintTool": "golangci-lint",
 		"gopls": {
 			"build.buildFlags": ["-tags=integration"]

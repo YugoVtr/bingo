@@ -5,41 +5,30 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	bingo "github.com/yugovtr/bingo/domain/game"
-	repo "github.com/yugovtr/bingo/domain/repository"
 )
 
-func TestNewGame(t *testing.T) {
-	AssertNewGame(t)
-}
-
-func TestGame_Play(t *testing.T) {
+func TestBingo_NewCard(t *testing.T) {
 	session := AssertNewGame(t)
-	myNumber, _ := session.Play()
 
-	newNumber, _ := session.Raffle()
-	for myNumber != newNumber {
-		newNumber, _ = session.Raffle()
-	}
+	t.Run("when has new valid card", func(t *testing.T) {
+		card, err := session.NewCard()
+		assert.NoError(t, err)
+		assert.Len(t, card, 25)
+		t.Log(card)
+	})
 
-	winner, ok := session.HasWinner()
-
-	assert.NotNil(t, winner)
-	assert.True(t, ok, "winner not found")
-
-	assert.Equal(t, myNumber, newNumber)
-	t.Logf("win after %d numbers", len(session.Historic()))
-
-	_, err := session.Play()
-	assert.Error(t, err)
-
-	_, err = session.Raffle()
-	assert.Error(t, err)
+	t.Run("when game already started", func(t *testing.T) {
+		_ = session.Raffle()
+		card, err := session.NewCard()
+		assert.Error(t, err)
+		t.Log(card)
+	})
 }
 
 func AssertNewGame(t *testing.T) *bingo.Bingo {
 	t.Helper()
 
-	session := bingo.NewGame(repo.NewInMemory())
+	session := bingo.NewGame()
 	assert.NotNil(t, session)
 
 	return session

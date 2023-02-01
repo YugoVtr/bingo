@@ -12,6 +12,7 @@ import (
 	"github.com/yugovtr/bingo/domain/game"
 	"github.com/yugovtr/bingo/domain/repository"
 	"github.com/yugovtr/bingo/http"
+	"github.com/yugovtr/bingo/http/controllers"
 	"github.com/yugovtr/bingo/http/routes"
 	database "github.com/yugovtr/bingo/infra/db"
 
@@ -19,6 +20,8 @@ import (
 )
 
 func main() {
+	log.SetPrefix("[SERVER] ")
+
 	host := flag.String("host", ":8081", "http service address")
 	db := flag.String("db", ":28015", "rethinkdb address")
 
@@ -43,9 +46,12 @@ func Setup(host, db string) *http2.Server {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	client := database.Connect(ctx, db)
-	game := game.NewGame(repository.NewRethinkDB(client.Session))
-	routes := routes.NewBingo(routes.New(), game)
+	input := controllers.NewBingoInput{
+		Game:       game.NewGame(),
+		Repository: repository.NewRethinkDB(database.Connect(ctx, db).Session),
+	}
+
+	routes := routes.NewBingo(routes.New(), input)
 	config := http.ServerConfig{TCPAddress: host, Routes: routes}
 
 	return http.NewServer(config)

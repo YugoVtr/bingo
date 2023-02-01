@@ -1,12 +1,13 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 
 	"github.com/gorilla/websocket"
-	"github.com/yugovtr/bingo/domain/game"
+	"github.com/yugovtr/bingo/domain/contract"
 )
 
 type Logger interface {
@@ -14,46 +15,40 @@ type Logger interface {
 	Print(...any)
 }
 
+type Event struct {
+	Description string `json:"description"`
+	Value       any    `json:"value"`
+}
+
 var wsUpgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
 type Bingo struct {
-	game        *game.Bingo
-	connections map[int]*websocket.Conn
-	logger      Logger
+	contract.Bingo
+	Repository contract.BingoRepository
+	logger     Logger
 }
 
-func NewBingo(game *game.Bingo) *Bingo {
+type NewBingoInput struct {
+	Game       contract.Bingo
+	Repository contract.BingoRepository
+}
+
+func NewBingo(i NewBingoInput) *Bingo {
 	return &Bingo{
-		game:        game,
-		connections: make(map[int]*websocket.Conn),
-		logger:      log.Default(),
+		Bingo:      i.Game,
+		Repository: i.Repository,
+		logger:     log.Default(),
 	}
 }
 
 func (b *Bingo) Next(w http.ResponseWriter, r *http.Request) {
-	n, err := b.game.Raffle()
-	if err != nil {
-		b.logger.Printf("raffle error: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	n := b.Raffle()
+	b.Repository.AddHistoric(n)
 
 	b.logger.Printf("new number requested: %d", n)
 	_, _ = w.Write(writeInt(n))
-
-	if winner, ok := b.game.HasWinner(); ok {
-		b.logger.Printf("we have a winner: %d", int(*winner))
-
-		conn, ok := b.connections[int(*winner)]
-		if !ok {
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-
-		_ = conn.WriteMessage(1, writeString("you win"))
-	}
 }
 
 func (b *Bingo) Play(w http.ResponseWriter, r *http.Request) {
@@ -64,23 +59,58 @@ func (b *Bingo) Play(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	myNumber, err := b.game.Play()
+	myCard, err := b.NewCard()
 	if err != nil {
 		conn.Close()
 		b.logger.Printf("game error: %s", err)
 		return
 	}
 
-	b.connections[myNumber] = conn
+	b.logger.Printf("new connection started with card %d", myCard)
+	event, _ := json.Marshal(Event{
+		Description: "card",
+		Value:       myCard,
+	})
+	_ = conn.WriteMessage(1, event)
 
-	b.logger.Printf("new connection started with number %d", myNumber)
-	_ = conn.WriteMessage(1, writeInt(myNumber))
+	ch := make(chan int)
+	b.Repository.ListenHistoric(ch)
+
+	go func() {
+		defer close(ch)
+
+		b.logger.Print("listening drawn numbers...")
+		defer b.logger.Print("listening drawn numbers...done")
+
+		for c := range ch {
+			b.logger.Printf("new number drawn: %d", c)
+
+			_ = conn.WriteJSON(Event{
+				Description: "drawn",
+				Value:       c,
+			})
+		}
+	}()
+
+	for {
+		event := &Event{}
+		err := conn.ReadJSON(event)
+		if err != nil {
+			switch err.(type) {
+			case *websocket.CloseError:
+				b.logger.Printf("client connection closed")
+			default:
+				b.logger.Printf("read message error: %s, %T", err, err)
+			}
+
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		b.logger.Printf("new client event: %s", event.Description)
+	}
 }
 
 func writeInt(i int) []byte {
 	return []byte(fmt.Sprintf("%d", i))
-}
-
-func writeString(s string) []byte {
-	return []byte(s)
 }

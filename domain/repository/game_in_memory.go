@@ -1,28 +1,25 @@
 package repository
 
-import "github.com/yugovtr/bingo/domain/entity"
-
 func NewInMemory() *gameInMemory {
 	return new(gameInMemory)
 }
 
 type gameInMemory struct {
 	historic []int
-	players  []entity.Player
 }
 
 func (s *gameInMemory) AddHistoric(h int) {
 	s.historic = append(s.historic, h)
 }
 
-func (s *gameInMemory) Historic() []int {
-	return s.historic
-}
-
-func (s *gameInMemory) AddPlayer(p entity.Player) {
-	s.players = append(s.players, p)
-}
-
-func (s *gameInMemory) Players() []entity.Player {
-	return s.players
+func (s *gameInMemory) ListenHistoric(ch chan<- int) {
+	go func() {
+		count := len(s.historic)
+		for {
+			if currentCount := len(s.historic); currentCount > count {
+				ch <- s.historic[currentCount-1]
+				count = currentCount
+			}
+		}
+	}()
 }

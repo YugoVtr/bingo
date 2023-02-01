@@ -1,14 +1,13 @@
 package http_test
 
 import (
-	"bytes"
-	"net/http/httptest"
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	domain "github.com/yugovtr/bingo/domain/game"
 	"github.com/yugovtr/bingo/domain/repository"
 	"github.com/yugovtr/bingo/http"
+	"github.com/yugovtr/bingo/http/controllers"
 	"github.com/yugovtr/bingo/http/routes"
 )
 
@@ -22,42 +21,15 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestServer_Bingo(t *testing.T) {
-	game := domain.NewGameWithCaller(repository.NewInMemory(), func() int { return 1 })
-	routes := routes.NewBingo(routes.New(), game)
+	log.SetPrefix("[SERVER] ")
+
+	input := controllers.NewBingoInput{
+		Game:       &StubGame{},
+		Repository: repository.NewInMemory(),
+	}
+
+	routes := routes.NewBingo(routes.New(), input)
 
 	client := AssertServer(t, http.ServerConfig{Routes: routes})
 	AcceptanceBingo(t, client)
-}
-
-func AssertServer(t *testing.T, config http.ServerConfig) *http.Client {
-	t.Helper()
-
-	server := http.NewServer(config)
-	s := httptest.NewServer(server.Handler)
-
-	t.Cleanup(func() { server.Close() })
-	return http.NewClient(s.URL, t)
-}
-
-func AcceptanceBingo(t *testing.T, client *http.Client) {
-	t.Helper()
-
-	player, err := client.PlayBingo()
-	assert.NoError(t, err)
-	defer player.Close()
-
-	_, msg, err := player.ReadMessage()
-	assert.NoError(t, err)
-	assert.NotNil(t, msg)
-
-	b := bytes.Buffer{}
-	err = client.BingoNext(&b)
-
-	assert.NoError(t, err)
-	assert.Equal(t, "1", b.String())
-
-	_, msg, err = player.ReadMessage()
-	assert.NoError(t, err)
-	assert.NotNil(t, msg)
-	t.Logf("%s", msg)
 }

@@ -1,7 +1,8 @@
 package repository
 
 import (
-	"github.com/yugovtr/bingo/domain/entity"
+	"encoding/json"
+
 	r "gopkg.in/rethinkdb/rethinkdb-go.v6"
 )
 
@@ -10,7 +11,8 @@ const (
 )
 
 type Number struct {
-	Value int `json:"value"`
+	ID    string `gorethink:"id,omitempty"`
+	Value int    `gorethink:"value"`
 }
 
 func NewRethinkDB(s *r.Session) *rethinkDB {
@@ -27,50 +29,32 @@ func (s *rethinkDB) AddHistoric(h int) {
 	}
 }
 
-func (s *rethinkDB) Historic() []int {
-	var result []int
-
-	rows, err := s.db().Table("historic").Run(s.session)
+func (s *rethinkDB) ListenHistoric(ch chan<- int) {
+	rows, err := s.db().Table("historic").Changes().Run(s.session)
 	if err != nil {
 		panic(err)
 	}
 
-	var numbers []Number
-	if err := rows.All(&numbers); err != nil {
-		panic(err)
-	}
+	go func() {
+		defer rows.Close()
 
-	for _, p := range numbers {
-		result = append(result, p.Value)
-	}
+		var change r.ChangeResponse
+		for rows.Next(&change) {
+			if newValue, ok := change.NewValue.(map[string]interface{}); ok {
+				var number Number
+				data, err := json.Marshal(newValue)
+				if err != nil {
+					continue
+				}
 
-	return result
-}
+				if err := json.Unmarshal(data, &number); err != nil {
+					continue
+				}
 
-func (s *rethinkDB) AddPlayer(p entity.Player) {
-	if err := s.db().Table("player").Insert(Number{Value: int(p)}).Exec(s.session); err != nil {
-		panic(err)
-	}
-}
-
-func (s *rethinkDB) Players() []entity.Player {
-	var result []entity.Player
-
-	rows, err := s.db().Table("player").Run(s.session)
-	if err != nil {
-		panic(err)
-	}
-
-	var numbers []Number
-	if err := rows.All(&numbers); err != nil {
-		panic(err)
-	}
-
-	for _, p := range numbers {
-		result = append(result, entity.Player(p.Value))
-	}
-
-	return result
+				ch <- number.Value
+			}
+		}
+	}()
 }
 
 func (s *rethinkDB) db() r.Term {

@@ -2,96 +2,78 @@ package game
 
 import (
 	"crypto/rand"
+	"math"
 	"math/big"
+	"sort"
 
 	"github.com/yugovtr/bingo/domain/entity"
-	"golang.org/x/exp/slices"
 )
 
-const MaxCardNumber = 10
-
-type Repository interface {
-	AddHistoric(int)
-	Historic() []int
-	AddPlayer(entity.Player)
-	Players() []entity.Player
-}
-
-type (
-	Caller     func() int
-	BingoError string
+const (
+	MaxCardNumber = 75
+	CardSize      = 25
 )
 
 type Bingo struct {
-	Repository
-	Caller
+	generator func(_, _ int) int
+	started   bool
 }
 
-func (err BingoError) Error() string {
-	return string(err)
+func NewGame() *Bingo {
+	b := &Bingo{generator: raffle}
+	return b
 }
 
-func Error(err string) error {
-	return BingoError(err)
-}
-
-func NewGame(repo Repository) *Bingo {
-	return &Bingo{Caller: raffle, Repository: repo}
-}
-
-func NewGameWithCaller(repo Repository, f func() int) *Bingo {
-	return &Bingo{Caller: f, Repository: repo}
-}
-
-func (g *Bingo) HasWinner() (*entity.Player, bool) {
-	var p entity.Player
-	i := slices.IndexFunc(g.Players(), func(i entity.Player) bool {
-		return slices.Index(g.Historic(), int(i)) >= 0
-	})
-
-	if i < 0 {
-		return &p, false
-	}
-
-	p = entity.Player(g.Players()[i])
-	return &p, i >= 0
-}
-
+// HasStarted checks if there has already been a number drawn for this game.
 func (g *Bingo) HasStarted() bool {
-	return len(g.Historic()) > 0
+	return g.started
 }
 
-func (g *Bingo) Play() (int, error) {
+// NewCard return a with card with pattern:
+//
+//	0:4 values between 1-15
+//	5:9 values between 16-30
+//	10:14 values between 31-45
+//	15:19 values between 46-60
+//	20:24 values between 61-75
+func (g *Bingo) NewCard() (entity.Card, error) {
 	if g.HasStarted() {
-		return -1, Error("game already started")
+		return entity.Card{}, errGameStarted
 	}
 
-	var n int
-	for n = g.Caller(); slices.Index(g.Players(), entity.Player(n)) != -1; n = g.Caller() {
-		// non repet players
-		// TODO - check if has a number to create a player
+	drawnNumbers := map[int]struct{}{}
+	card, lenght := make(entity.Card, CardSize), int(math.Sqrt(CardSize))
+
+	for column := 0; column < lenght; column++ {
+		for line := 0; line < lenght; line++ {
+
+			start, end := (column*15)+1, ((column+1)*15)+1
+			n := g.generator(start, end)
+
+			for _, ok := drawnNumbers[n]; ok || (n < start || n >= end); _, ok = drawnNumbers[n] {
+				// ignore repetitions
+				n = g.generator(start, end)
+			}
+
+			drawnNumbers[n] = struct{}{}
+			card[column*lenght+line] = n
+		}
 	}
 
-	g.AddPlayer(entity.Player(n))
-	return n, nil
+	sort.Ints(card)
+	return card, nil
 }
 
-func (g *Bingo) Raffle() (int, error) {
-	if _, ok := g.HasWinner(); ok {
-		return -1, Error("game already done")
-	}
+// Raffle generate a number between 1 and MaxCardNumber.
+//
+//	Repetitions may occur in successive draws.
+func (g *Bingo) Raffle() int {
+	g.started = true
 
-	var n int
-	for n = g.Caller(); slices.Index(g.Historic(), n) != -1; n = g.Caller() {
-		// non repet numbers
-	}
-
-	g.AddHistoric(n)
-	return n, nil
+	return g.generator(0, MaxCardNumber)
 }
 
-func raffle() int {
-	// [0, max) means greater than or equal to 0 and less than (max+1)
-	n, _ := rand.Int(rand.Reader, big.NewInt(MaxCardNumber+1))
-	return int(n.Int64())
+func raffle(min, max int) int {
+	n, _ := rand.Int(rand.Reader, big.NewInt(int64(max-min)))
+	return int(n.Int64()) + min
 }
